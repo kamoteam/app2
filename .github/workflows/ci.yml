@@ -2,7 +2,7 @@ name: 'CI'
 
 on: 
   repository_dispatch:
-    types: [trigger]
+    types: ["Cluster-Integration"]
   workflow_dispatch:
 
 jobs:
@@ -73,6 +73,7 @@ jobs:
   tear-down:
     name: "Tear Down"
     runs-on: [self-hosted,Linux,X64]
+    needs: job-c
     steps:
     - name: Reset Permission
       run: |
