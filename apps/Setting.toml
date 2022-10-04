@@ -1,0 +1,10 @@
+[ci]
+  [[ci.jobs]]
+    name='job-a'
+    required=true
+  [[ci.jobs]]
+    name='job-b'
+    required=false
+  [[ci.jobs]]
+    name='job-c'
+    required=true

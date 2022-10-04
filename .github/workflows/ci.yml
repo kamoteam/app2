@@ -1,0 +1,88 @@
+name: 'CI'
+
+on: 
+  repository_dispatch:
+    types: [trigger]
+  workflow_dispatch:
+
+jobs:
+  parse_user_settings:
+    runs-on: [self-hosted,Linux,X64]
+    outputs:
+      required_jobs: ${{ steps.required_jobs.outputs.required_jobs }}
+    steps:
+    - name: Reset Permission
+      run: |
+        echo ${{ secrets.RUNNER_SUDO_PASSWD }} | sudo -S chown -R ${USER} ${GITHUB_WORKSPACE}
+
+    - uses: actions/checkout@v3
+
+    - name: Convert toml to json
+      run: |
+        cat ${PWD}/apps/Setting.toml
+        cat ${PWD}/apps/Setting.toml | docker run -i --rm -v ${PWD}:${PWD} --workdir=${PWD} ghcr.io/tomwright/dasel:latest -p toml -w json  > ${GITHUB_WORKSPACE}/apps/Setting.json
+        echo ${{ secrets.RUNNER_SUDO_PASSWD }} | sudo -S chown -R ${USER} ${GITHUB_WORKSPACE}
+
+    - name: Check required jobs
+      id: required_jobs
+      run: |
+        REQUIED_JOBS=$(jq -r '.ci.jobs | map(select(.required == true)| .name)|unique' ${GITHUB_WORKSPACE}/apps/Setting.json | jq -rc)
+        echo "REQUIED_JOBS: ${REQUIED_JOBS}"
+        echo "::set-output name=required_jobs::${REQUIED_JOBS}"
+        echo "debug"
+        echo "${{ steps.required_jobs.outputs.required_jobs }}"
+
+    - name: Dump GitHub context
+      id: github_context_step
+      run: echo '${{ toJSON(github) }}'
+
+    - name: Dump GitHub context
+      run: |
+        echo '${{ toJSON(github.job) }}'
+        echo '${{ github.job }}'
+
+    - name: Dump job context
+      run: echo '${{ toJSON(job) }}'
+    - name: Dump steps context
+      run: echo '${{ toJSON(steps) }}'
+    - name: Dump runner context
+      run: echo '${{ toJSON(runner) }}'
+    - name: Dump strategy context
+      run: echo '${{ toJSON(strategy) }}'
+    - name: Dump matrix context
+      run: echo '${{ toJSON(matrix) }}'
+
+  job-a:
+    needs: parse_user_settings
+    if: ${{ always() && contains(needs.parse_user_settings.outputs.required_jobs, 'job-a' ) }}
+    uses: kamoteam/workflows/.github/workflows/job-a.yml@main
+    secrets: inherit
+
+  job-b:
+    needs: job-a
+    if: ${{ always() && contains(needs.parse_user_settings.outputs.required_jobs, 'job-b' ) }}
+    uses: kamoteam/workflows/.github/workflows/job-b.yml@main
+    secrets: inherit
+
+  job-c:
+    needs: job-b
+    if: ${{ always() && contains(needs.parse_user_settings.outputs.required_jobs, 'job-c' ) }}
+    uses: kamoteam/workflows/.github/workflows/job-c.yml@main
+    secrets: inherit
+
+  tear-down:
+    name: "Tear Down"
+    runs-on: [self-hosted,Linux,X64]
+    steps:
+    - name: Reset Permission
+      run: |
+        echo ${{ secrets.RUNNER_SUDO_PASSWD }} | sudo -S chown -R ${USER} ${GITHUB_WORKSPACE}
+
+    - uses: actions/checkout@v3
+
+    - name: "Wait for 10s"
+      shell: bash
+      run: |
+        sleep 10s
+      
+
